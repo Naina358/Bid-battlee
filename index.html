@@ -1,8 +1,9 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>BidBattle Live Dashboard</title>
+  <title>IPL Auction Dashboard</title>
 
+  <!-- Firebase -->
   <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js"></script>
 
@@ -13,59 +14,129 @@
       color: white;
       padding: 20px;
     }
+
     h1 { text-align:center; }
+
+    .container {
+      display:flex;
+      gap:20px;
+    }
+
+    .card {
+      background: rgba(255,255,255,0.05);
+      padding:20px;
+      border-radius:12px;
+      flex:1;
+    }
+
+    input, select {
+      width:100%;
+      padding:8px;
+      margin-top:5px;
+      border-radius:5px;
+      border:none;
+    }
+
+    button {
+      padding:12px;
+      margin-top:10px;
+      width:100%;
+      background:#00c6ff;
+      border:none;
+      border-radius:8px;
+      font-weight:bold;
+      cursor:pointer;
+    }
+
     table {
       width:100%;
+      margin-top:10px;
       border-collapse:collapse;
-      margin-top:20px;
-      background: rgba(255,255,255,0.05);
     }
+
     th, td {
-      padding:10px;
+      padding:8px;
       text-align:center;
       border:1px solid #ccc;
     }
-    th { background:#000; }
-    input, select { width:100%; padding:5px; }
-    button {
-      padding:10px;
+
+    .highlight {
       background:#00c6ff;
-      border:none;
-      border-radius:5px;
-      cursor:pointer;
+      color:black;
     }
-    .red { background:#ff4d4d; }
-    .green { background:#4dff88; color:black; }
+
+    @keyframes pulse {
+      0% { box-shadow:0 0 5px #00c6ff; }
+      50% { box-shadow:0 0 20px #00c6ff; }
+      100% { box-shadow:0 0 5px #00c6ff; }
+    }
+
+    .player-box {
+      border:2px dashed #00c6ff;
+      padding:15px;
+      border-radius:10px;
+      text-align:center;
+      animation:pulse 1.5s infinite;
+    }
   </style>
 </head>
 
 <body>
 
-<div style="display:flex; align-items:center; gap:10px;">
-  <img src="logo.png" style="width:40px;">
-  <h1>BidBattle Dashboard</h1>
+<h1>🏏 IPL Auction Dashboard</h1>
+
+<div class="container">
+
+  <!-- LEFT -->
+  <div class="card">
+    <h2>Current Player</h2>
+
+    <div class="player-box">
+      <h2 id="playerName">No Player</h2>
+      <p id="playerRole">Role</p>
+      <h3>₹ <span id="currentBid">0</span> Cr</h3>
+    </div>
+
+    <input id="teamInput" placeholder="Team Name">
+    <input id="playerInput" placeholder="Player Name">
+
+    <select id="roleInput">
+      <option>Batter</option>
+      <option>Bowler</option>
+      <option>All-Rounder</option>
+      <option>Wicket Keeper</option>
+    </select>
+
+    <input id="priceInput" type="number" placeholder="Bid Amount">
+    <input id="ratingInput" type="number" placeholder="Rating">
+
+    <select id="foreignInput">
+      <option>N</option>
+      <option>Y</option>
+    </select>
+
+    <button onclick="placeBid()">💰 Place Bid</button>
+  </div>
+
+  <!-- RIGHT -->
+  <div class="card">
+    <h2>Leaderboard</h2>
+    <table id="summary">
+      <tr>
+        <th>Team</th>
+        <th>Spent</th>
+        <th>Rating</th>
+        <th>Rank</th>
+      </tr>
+    </table>
+  </div>
+
 </div>
 
-<button onclick="addPlayer()">Add Player</button>
-
-<table id="table">
-<tr>
-<th>Team</th><th>Player</th><th>Role</th><th>Price</th><th>Rating</th><th>Foreign</th>
-</tr>
-</table>
-
-<h2>Summary</h2>
-<table id="summary">
-<tr>
-<th>Team</th><th>Players</th><th>Spent</th><th>Remaining</th><th>Rating</th><th>Rank</th><th>Status</th>
-</tr>
-</table>
-
-<div style="position:fixed; bottom:10px; right:10px; font-size:12px; opacity:0.5;">
-Ansh Singh
-</div>
+<audio id="hammer" src="https://www.soundjay.com/misc/sounds/gavel-01.mp3"></audio>
 
 <script>
+
 const firebaseConfig = {
   apiKey: "PASTE",
   authDomain: "PASTE",
@@ -76,83 +147,63 @@ const firebaseConfig = {
 firebase.initializeApp(firebaseConfig);
 const db = firebase.database();
 
-function addPlayer() {
-  let row = document.getElementById("table").insertRow();
-  row.innerHTML = `
-    <td><input></td>
-    <td><input></td>
-    <td>
-      <select>
-        <option>Batter</option>
-        <option>Bowler</option>
-        <option>All-Rounder</option>
-        <option>Wicket Keeper</option>
-      </select>
-    </td>
-    <td><input type="number"></td>
-    <td><input type="number"></td>
-    <td>
-      <select><option>N</option><option>Y</option></select>
-    </td>
-    <td><button onclick="save(this)">Save</button></td>
-  `;
-}
-
-function save(btn) {
-  let row = btn.parentNode.parentNode;
+function placeBid() {
   let data = {
-    team: row.cells[0].children[0].value,
-    player: row.cells[1].children[0].value,
-    role: row.cells[2].children[0].value,
-    price: Number(row.cells[3].children[0].value),
-    rating: Number(row.cells[4].children[0].value),
-    foreign: row.cells[5].children[0].value
+    team: document.getElementById("teamInput").value,
+    player: document.getElementById("playerInput").value,
+    role: document.getElementById("roleInput").value,
+    price: Number(document.getElementById("priceInput").value),
+    rating: Number(document.getElementById("ratingInput").value),
+    foreign: document.getElementById("foreignInput").value
   };
+
+  document.getElementById("playerName").innerText = data.player;
+  document.getElementById("playerRole").innerText = data.role;
+  document.getElementById("currentBid").innerText = data.price;
+
+  document.getElementById("hammer").play();
+
   db.ref("players").push(data);
 }
 
-db.ref("players").on("value", snap=>{
-  let players = snap.val() || {};
+db.ref("players").on("value", snapshot => {
+  let players = snapshot.val() || {};
   let teams = {};
 
-  for(let id in players){
+  for (let id in players) {
     let p = players[id];
-    if(!teams[p.team]) teams[p.team]={players:0,spent:0,rating:0,roles:{},foreign:0};
 
-    let t=teams[p.team];
-    t.players++;
-    t.spent+=p.price;
-    t.rating+=p.rating;
-    if(p.foreign==="Y") t.foreign++;
-    t.roles[p.role]=(t.roles[p.role]||0)+1;
+    if (!teams[p.team]) {
+      teams[p.team] = {spent:0, rating:0};
+    }
+
+    teams[p.team].spent += p.price;
+    teams[p.team].rating += p.rating;
   }
 
-  render(teams);
+  renderLeaderboard(teams);
 });
 
-function render(teams){
-  let table=document.getElementById("summary");
-  table.innerHTML=table.rows[0].outerHTML;
+function renderLeaderboard(teams) {
+  let table = document.getElementById("summary");
+  table.innerHTML = table.rows[0].outerHTML;
 
-  let sorted=Object.entries(teams).sort((a,b)=>b[1].rating-a[1].rating);
+  let sorted = Object.entries(teams).sort((a,b)=>b[1].rating - a[1].rating);
 
   sorted.forEach((t,i)=>{
-    let d=t[1];
-    let remaining=90-d.spent;
-    let valid = d.roles["Batter"]>=3 && d.roles["Bowler"]>=3 && d.roles["All-Rounder"]>=1 && d.roles["Wicket Keeper"]>=1 && d.foreign<=4;
+    let row = table.insertRow();
 
-    let row=table.insertRow();
-    row.innerHTML=`
+    if(i===0) row.classList.add("highlight");
+
+    row.innerHTML = `
       <td>${t[0]}</td>
-      <td>${d.players}</td>
-      <td>${d.spent}</td>
-      <td class="${remaining<10?'red':''}">${remaining}</td>
-      <td>${d.rating}</td>
+      <td>${t[1].spent}</td>
+      <td>${t[1].rating}</td>
       <td>${i+1}</td>
-      <td class="${valid?'green':'red'}">${valid?'VALID':'INVALID'}</td>
     `;
   });
 }
+
 </script>
 
 </body>
